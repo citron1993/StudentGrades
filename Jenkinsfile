@@ -1,6 +1,7 @@
 pipeline {
     agent none
 
+    // פרמטרים ל-Jenkins Job
     parameters {
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
         string(name: 'GRADE1', defaultValue: '85', description: 'Grade 1')
@@ -11,24 +12,33 @@ pipeline {
     }
 
     stages {
+        stage('Checkout from GitHub') {
+            agent any
+            steps {
+                // כאן מזינים את ה-Repo שלך
+                git branch: 'main', url: 'https://github.com/citron1993/StudentGrades.git'
+            }
+        }
+
         stage('Run Script') {
+            agent any
             steps {
                 script {
                     if (params.TARGET_OS == 'Windows') {
-                        node('windows-node') { // <-- החלף לשם Node שלך
-                            bat "C:\\Users\\citro\\AppData\\Local\\Programs\\Python\\Python313\\python.exe grades_calculator.py %STUDENT_NAME% %GRADE1% %GRADE2% %PASSED_EXAM% %EXAM_DATE%"
-                        }
+                        echo "Running on Windows..."
+                        bat "C:\\Users\\citro\\AppData\\Local\\Programs\\Python\\Python313\\python.exe grades_calculator.py %STUDENT_NAME% %GRADE1% %GRADE2% %PASSED_EXAM% %EXAM_DATE%"
                     } else {
-                        node('linux-node') { // <-- החלף לשם Node שלך
-                            sh "python3 grades_calculator.py ${STUDENT_NAME} ${GRADE1} ${GRADE2} ${PASSED_EXAM} ${EXAM_DATE}"
-                        }
+                        echo "Running on Linux/WSL..."
+                        sh "python3 grades_calculator.py ${STUDENT_NAME} ${GRADE1} ${GRADE2} ${PASSED_EXAM} ${EXAM_DATE}"
                     }
                 }
             }
         }
 
         stage('Archive Results') {
+            agent any
             steps {
+                echo "Archiving HTML and log files..."
                 archiveArtifacts artifacts: 'result.html, script.log', fingerprint: true
             }
         }
