@@ -1,8 +1,6 @@
 pipeline {
-    // Agent can be any, we will choose OS per stage
     agent none
 
-    // Parameters for the script
     parameters {
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
         string(name: 'GRADE1', defaultValue: '85', description: 'Grade 1')
@@ -17,11 +15,13 @@ pipeline {
             steps {
                 script {
                     if (params.TARGET_OS == 'Windows') {
-                        // Windows Node
-                        bat "C:\\Users\\citro\\AppData\\Local\\Programs\\Python\\Python313\\python.exe grades_calculator.py %STUDENT_NAME% %GRADE1% %GRADE2% %PASSED_EXAM% %EXAM_DATE%"
+                        node('windows-node') { // <-- החלף לשם Node שלך
+                            bat "C:\\Users\\citro\\AppData\\Local\\Programs\\Python\\Python313\\python.exe grades_calculator.py %STUDENT_NAME% %GRADE1% %GRADE2% %PASSED_EXAM% %EXAM_DATE%"
+                        }
                     } else {
-                        // Linux Node (WSL or Linux machine)
-                        sh "python3 grades_calculator.py ${STUDENT_NAME} ${GRADE1} ${GRADE2} ${PASSED_EXAM} ${EXAM_DATE}"
+                        node('linux-node') { // <-- החלף לשם Node שלך
+                            sh "python3 grades_calculator.py ${STUDENT_NAME} ${GRADE1} ${GRADE2} ${PASSED_EXAM} ${EXAM_DATE}"
+                        }
                     }
                 }
             }
