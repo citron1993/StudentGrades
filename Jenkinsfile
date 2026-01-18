@@ -1,5 +1,5 @@
 pipeline {
-    agent none   // חשוב: בלי זה החלונית לא תופיע
+    agent none   // חשוב: בלי זה החלונית תופיע
 
     parameters {
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
@@ -16,20 +16,33 @@ pipeline {
     }
 
     stages {
-        stage('Run Script') {
+        stage('Checkout from GitHub') {
             agent { label "${params.NODE}" }
 
             steps {
                 echo "Running on node: ${params.NODE}"
 
+                checkout([$class: 'GitSCM', 
+                    branches: [[name: '*/main']],  // או שם הברנץ' שלך
+                    userRemoteConfigs: [[url: 'https://github.com/itaycitron/StudentGrades.git']]
+                ])
+            }
+        }
+
+        stage('Run Script') {
+            agent { label "${params.NODE}" }
+
+            steps {
                 script {
                     if (params.NODE == 'master') {
+                        echo 'Running Python script on Windows'
                         bat """
                             "C:\\Users\\citro\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" ^
                             grades_calculator.py ^
                             %STUDENT_NAME% %GRADE1% %GRADE2% %PASSED_EXAM% %EXAM_DATE%
                         """
                     } else {
+                        echo 'Running Python script on Linux'
                         sh """
                             python3 grades_calculator.py \
                             ${STUDENT_NAME} \
@@ -44,9 +57,20 @@ pipeline {
         }
 
         stage('Archive Results') {
+            agent { label "${params.NODE}" }
+
             steps {
                 archiveArtifacts artifacts: 'result.html, script.log', fingerprint: true
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline finished successfully'
+        }
+        failure {
+            echo 'Pipeline failed – check console output'
         }
     }
 }
