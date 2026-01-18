@@ -1,5 +1,5 @@
 pipeline {
-    agent none   // חשוב! בלי זה החלונית לא תופיע
+    agent none   // חשוב: בלי זה החלונית לא תופיע
 
     parameters {
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
