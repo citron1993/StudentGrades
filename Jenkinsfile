@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent none   // חשוב: בלי זה לא תופיע חלונית
 
     parameters {
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
@@ -10,41 +10,49 @@ pipeline {
     }
 
     stages {
+        stage('Run on Master and Agent') {
+            matrix {
 
-        stage('Checkout from GitHub') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Run Script') {
-            steps {
-                script {
-                    if (isUnix()) {
-                        echo 'Running on Linux'
-                        sh """
-                            python3 grades_calculator.py \
-                            ${STUDENT_NAME} \
-                            ${GRADE1} \
-                            ${GRADE2} \
-                            ${PASSED_EXAM} \
-                            ${EXAM_DATE}
-                        """
-                    } else {
-                        echo 'Running on Windows'
-                        bat """
-                            "C:\\Users\\citro\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" ^
-                            grades_calculator.py ^
-                            %STUDENT_NAME% %GRADE1% %GRADE2% %PASSED_EXAM% %EXAM_DATE%
-                        """
+                // 🔹 זה מה שיוצר את החלונית
+                axes {
+                    axis {
+                        name 'NODE'
+                        values 'master', 'agent'
                     }
                 }
-            }
-        }
 
-        stage('Archive Results') {
-            steps {
-                archiveArtifacts artifacts: 'result.html, script.log', fingerprint: true
+                // 🔹 בחירת ה־Node לפי label
+                agent { label NODE }
+
+                stages {
+
+                    stage('Checkout from GitHub') {
+                        steps {
+                            checkout scm
+                        }
+                    }
+
+                    stage('Run Script') {
+                        steps {
+                            echo "Running on node: ${NODE}"
+
+                            sh """
+                                python3 grades_calculator.py \
+                                ${STUDENT_NAME} \
+                                ${GRADE1} \
+                                ${GRADE2} \
+                                ${PASSED_EXAM} \
+                                ${EXAM_DATE}
+                            """
+                        }
+                    }
+
+                    stage('Archive Results') {
+                        steps {
+                            archiveArtifacts artifacts: 'result.html, script.log', fingerprint: true
+                        }
+                    }
+                }
             }
         }
     }
@@ -58,3 +66,5 @@ pipeline {
         }
     }
 }
+
+
