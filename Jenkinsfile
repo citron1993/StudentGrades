@@ -3,8 +3,8 @@ pipeline {
 
     parameters {
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student name')
-        string(name: 'GRADE1', defaultValue: '80', description: 'Grade 1')
-        string(name: 'GRADE2', defaultValue: '90', description: 'Grade 2')
+        string(name: 'GRADE1', defaultValue: '80', description: 'First grade')
+        string(name: 'GRADE2', defaultValue: '90', description: 'Second grade')
     }
 
     stages {
@@ -19,16 +19,13 @@ pipeline {
         stage('Calculate Average') {
             steps {
                 script {
-                    int g1 = params.GRADE1.toInteger()
-                    int g2 = params.GRADE2.toInteger()
-                    float avg = (g1 + g2) / 2.0
-
+                    def avg = (params.GRADE1.toInteger() + params.GRADE2.toInteger()) / 2
                     echo "Average grade: ${avg}"
 
                     if (avg >= 60) {
                         echo "✅ PASSED"
                     } else {
-                        echo "❌ FAILED"
+                        error "❌ FAILED"
                     }
                 }
             }
