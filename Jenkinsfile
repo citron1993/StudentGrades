@@ -21,13 +21,17 @@ pipeline {
         stage('Validate & Calculate') {
             steps {
                 script {
-                    // יצירת תיקיות לדוחות
+                    // יצירת תיקיות לדוחות רק אם הן לא קיימות
                     def reportsDir = "${env.WORKSPACE}/reports"
 
                     if (isUnix()) {
-                        sh "mkdir -p ${reportsDir}"
+                        sh "mkdir -p ${reportsDir}" // Linux/Mac: -p מונע שגיאה אם קיימת
                     } else {
-                        bat "mkdir \"${reportsDir}\""
+                        bat """
+                        if not exist "${reportsDir}" (
+                            mkdir "${reportsDir}"
+                        )
+                        """
                     }
 
                     // בדיקה אם הקלט תקין
