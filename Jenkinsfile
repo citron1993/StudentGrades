@@ -1,78 +1,94 @@
 pipeline {
     agent any
-
     parameters {
-        string(name: 'STUDENT', defaultValue: 'David', description: 'Student Name')
-        string(name: 'GRADE1', defaultValue: '80', description: 'First Grade')
-        string(name: 'GRADE2', defaultValue: '90', description: 'Second Grade')
+        string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
+        string(name: 'GRADE1', defaultValue: '0', description: 'First Grade')
+        string(name: 'GRADE2', defaultValue: '0', description: 'Second Grade')
+    }
+
+    options {
+        // תמיד נסיים עם SUCCESS גם אם יש שגיאות
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Validate & Calculate') {
             steps {
                 script {
-                    def logText = ""
-                    def htmlText = ""
-                    def status = ""
-                    def avg = 0
+                    // יצירת תיקיות לדוחות
+                    def reportsDir = "${env.WORKSPACE}/reports"
+                    sh "mkdir -p ${reportsDir}"
 
-                    try {
-                        // המרה ל־Integer
-                        def g1 = params.GRADE1.toInteger()
-                        def g2 = params.GRADE2.toInteger()
+                    // בדיקה אם הקלט תקין
+                    def g1 = 0
+                    def g2 = 0
+                    def errors = []
+                    try { g1 = params.GRADE1.toInteger() } catch (e) { errors << "GRADE1 לא חוקי" }
+                    try { g2 = params.GRADE2.toInteger() } catch (e) { errors << "GRADE2 לא חוקי" }
 
-                        avg = (g1 + g2) / 2
-                        logText += "Student: ${params.STUDENT}<br>"
-                        logText += "Grade 1: ${g1}<br>"
-                        logText += "Grade 2: ${g2}<br>"
-                        logText += "Average: ${avg}<br>"
+                    def average = (g1 + g2) / 2
+                    def status = (average >= 50) ? "PASSED ✅" : "FAILED ❌"
 
-                        if (avg >= 50) {
-                            status = "✅ PASSED"
-                            logText += "<span style='color:green'>Status: ${status}</span><br>"
-                        } else {
-                            status = "❌ FAILED"
-                            logText += "<span style='color:red'>Status: ${status}</span><br>"
-                        }
-
-                    } catch(Exception e) {
-                        status = "⚠️ Invalid input!"
-                        logText += "<span style='color:orange'>${status}</span><br>"
-                    }
-
-                    // יצירת דף HTML לתוצאה
-                    htmlText += """
+                    // יצירת דף HTML מעוצב
+                    def htmlContent = """
                     <html>
                     <head>
                         <title>Grade Report</title>
                         <style>
-                            body { font-family: Arial; background:#f2f2f2; padding:20px; }
-                            .card { background:white; padding:20px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.2); max-width:400px; margin:auto; }
-                            h2 { color:#333; }
-                            .passed { color: green; font-weight:bold; }
-                            .failed { color: red; font-weight:bold; }
-                            .warning { color: orange; font-weight:bold; }
+                            body { font-family: Arial; background: #f4f4f4; padding: 20px; }
+                            h1 { color: #333; }
+                            table { border-collapse: collapse; width: 50%; }
+                            td, th { border: 1px solid #999; padding: 10px; text-align: center; }
+                            .passed { color: green; font-weight: bold; }
+                            .failed { color: red; font-weight: bold; }
                         </style>
                     </head>
                     <body>
-                        <div class="card">
-                            <h2>Student: ${params.STUDENT}</h2>
-                            <p>Grade 1: ${params.GRADE1}</p>
-                            <p>Grade 2: ${params.GRADE2}</p>
-                            <p>Average: ${avg}</p>
-                            <p>Status: ${
-                                status.contains('PASSED') ? '<span class="passed">' + status + '</span>' :
-                                status.contains('FAILED') ? '<span class="failed">' + status + '</span>' :
-                                '<span class="warning">' + status + '</span>'
-                            }</p>
-                        </div>
+                        <h1>Grade Report for ${params.STUDENT_NAME}</h1>
+                        <table>
+                            <tr><th>Grade 1</th><th>Grade 2</th><th>Average</th><th>Status</th></tr>
+                            <tr>
+                                <td>${g1}</td>
+                                <td>${g2}</td>
+                                <td>${average}</td>
+                                <td class="${average>=50?'passed':'failed'}">${status}</td>
+                            </tr>
+                        </table>
+                        ${errors.size() > 0 ? "<p style='color:red;'>Errors: ${errors.join(', ')}</p>" : ""}
                     </body>
                     </html>
                     """
+                    writeFile file: "${reportsDir}/GradeReport.html", text: htmlContent
 
-                    // שמירת קבצי HTML
-                    writeFile file: 'grade_report.html', text: htmlText
-                    writeFile file: 'log.html', text: "<html><body>${logText}</body></html>"
+                    // יצירת דף HTML ללוג
+                    def logContent = """
+                    <html>
+                    <head><title>Build Log</title></head>
+                    <body>
+                    <h1>Build Log</h1>
+                    <pre>
+                    Student: ${params.STUDENT_NAME}
+                    Grade 1: ${g1}
+                    Grade 2: ${g2}
+                    Average: ${average}
+                    Status: ${status}
+                    Errors: ${errors.join(', ')}
+                    </pre>
+                    </body>
+                    </html>
+                    """
+                    writeFile file: "${reportsDir}/BuildLog.html", text: logContent
+
+                    // שמירת לינק ל־Console
+                    echo "Grade Report: ${env.BUILD_URL}artifact/reports/GradeReport.html"
+                    echo "Build Log: ${env.BUILD_URL}artifact/reports/BuildLog.html"
                 }
             }
         }
@@ -80,29 +96,8 @@ pipeline {
 
     post {
         always {
-            script {
-                // תמיד SUCCESS
-                currentBuild.result = 'SUCCESS'
-            }
-
-            // פרסום דפי HTML
-            publishHTML([
-                allowMissing: false,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: '.',
-                reportFiles: 'grade_report.html',
-                reportName: 'Grade Report'
-            ])
-
-            publishHTML([
-                allowMissing: false,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: '.',
-                reportFiles: 'log.html',
-                reportName: 'Build Log'
-            ])
+            // ארכוב הדוחות והלוגים כדי שיופיעו ב־Jenkins
+            archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
         }
     }
 }
