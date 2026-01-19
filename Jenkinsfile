@@ -21,10 +21,12 @@ pipeline {
         stage('Validate & Calculate') {
             steps {
                 script {
+                    // תיקיית הדוחות
                     def reportsDir = "${env.WORKSPACE}/reports"
 
+                    // יצירת התיקייה אם לא קיימת, בהתאם ל-OS
                     if (isUnix()) {
-                        sh "mkdir -p ${reportsDir}"
+                        sh "mkdir -p '${reportsDir}'"
                     } else {
                         bat """
                         if not exist "${reportsDir}" (
@@ -33,11 +35,11 @@ pipeline {
                         """
                     }
 
+                    // בדיקת ציונים
                     def g1 = null
                     def g2 = null
                     def errors = []
 
-                    // פונקציה לבדיקת ציון
                     def validateGrade = { gradeStr, name ->
                         def gradeNum = null
                         try {
@@ -63,7 +65,7 @@ pipeline {
                         status = (average >= 50) ? "PASSED ✅" : "FAILED ❌"
                     }
 
-                    // יצירת דף HTML מעוצב
+                    // דוח HTML מעוצב
                     def htmlContent = """
                     <html>
                     <head>
@@ -86,7 +88,9 @@ pipeline {
                                 <td>${g1 != null ? g1 : "-"}</td>
                                 <td>${g2 != null ? g2 : "-"}</td>
                                 <td>${average != null ? average : "-"}</td>
-                                <td class="${errors.size() > 0 ? 'error' : (average>=50?'passed':'failed')}">${errors.size() > 0 ? "ERROR ❌" : status}</td>
+                                <td class="${errors.size() > 0 ? 'error' : (average>=50?'passed':'failed')}">
+                                    ${errors.size() > 0 ? "ERROR ❌" : status}
+                                </td>
                             </tr>
                         </table>
                         ${errors.size() > 0 ? "<p style='color:red;'>Errors: ${errors.join(', ')}</p>" : ""}
@@ -95,7 +99,7 @@ pipeline {
                     """
                     writeFile file: "${reportsDir}/GradeReport.html", text: htmlContent
 
-                    // יצירת דף HTML ללוג
+                    // לוג HTML
                     def logContent = """
                     <html>
                     <head><title>Build Log</title></head>
