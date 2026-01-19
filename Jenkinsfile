@@ -11,22 +11,25 @@ pipeline {
         stage('Calculate & Report') {
             steps {
                 script {
-                    // כל השגיאות יתפסו פה, אבל הבילד לא ייפול
+                    // משתנה לשמירת כל הלוג
+                    def logContent = ""
+
+                    // לא שובר את הבילד אם יש שגיאה
                     catchError(buildResult: 'SUCCESS') {
                         try {
                             def grade1 = params.GRADE1.toInteger()
                             def grade2 = params.GRADE2.toInteger()
                             def avg = (grade1 + grade2) / 2
 
-                            echo "Student: ${params.STUDENT}"
-                            echo "Grade 1: ${grade1}"
-                            echo "Grade 2: ${grade2}"
-                            echo "Average: ${avg}"
+                            logContent += "Student: ${params.STUDENT}\n"
+                            logContent += "Grade 1: ${grade1}\n"
+                            logContent += "Grade 2: ${grade2}\n"
+                            logContent += "Average: ${avg}\n"
 
                             def status = avg >= 50 ? "✅ PASSED" : "❌ FAILED"
-                            echo status
+                            logContent += "${status}\n"
 
-                            // כתיבת HTML
+                            // HTML של דוח תוצאות
                             def html = """
                             <html>
                             <head>
@@ -47,6 +50,25 @@ pipeline {
                             </html>
                             """
                             writeFile file: 'report.html', text: html
+
+                            // HTML של לוג
+                            def logHtml = """
+                            <html>
+                            <head>
+                                <style>
+                                    body { font-family: monospace; white-space: pre; }
+                                    .error { color: red; }
+                                </style>
+                            </head>
+                            <body>
+                                <h2>Build Log</h2>
+                                <pre>${logContent}</pre>
+                            </body>
+                            </html>
+                            """
+                            writeFile file: 'log.html', text: logHtml
+
+                            // פרסום שני הדפים
                             publishHTML(target: [
                                 allowMissing: false,
                                 alwaysLinkToLastBuild: true,
@@ -55,8 +77,17 @@ pipeline {
                                 reportFiles: 'report.html',
                                 reportName: 'Student Report'
                             ])
+                            publishHTML(target: [
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: '.',
+                                reportFiles: 'log.html',
+                                reportName: 'Build Log'
+                            ])
 
                         } catch (Exception e) {
+                            logContent += "⚠️ ERROR: Invalid input parameters!\n"
                             echo "⚠️ ERROR: Invalid input parameters!"
                         }
                     }
