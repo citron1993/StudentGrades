@@ -1,18 +1,17 @@
 pipeline {
-    // בחירה דינמית של ה-Node לפי הפרמטר
+    // בחירת ה-Node עליו ירוץ ה-Pipeline לפי בחירת המשתמש
     agent {
         label "${params.OPERATING_SYSTEM ?: 'built-in'}"
     }
 
     parameters {
-        // בחירת ה-Node להרצה
         choice(name: 'OPERATING_SYSTEM', 
                choices: ['linux-node', 'built-in'], 
-               description: 'בחר על איזה Node להריץ את הבנייה')
+               description: 'בחר את השרת עליו תרצה להריץ את הבנייה')
                
-        string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
-        string(name: 'GRADE1', defaultValue: '0', description: 'First Grade')
-        string(name: 'GRADE2', defaultValue: '0', description: 'Second Grade')
+        string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'שם הסטודנט')
+        string(name: 'GRADE1', defaultValue: '0', description: 'ציון ראשון')
+        string(name: 'GRADE2', defaultValue: '0', description: 'ציון שני')
     }
 
     options {
@@ -23,6 +22,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                // מוריד את הקוד מה-Git
                 checkout scm
             }
         }
@@ -30,97 +30,87 @@ pipeline {
         stage('Validate & Calculate') {
             steps {
                 script {
-                    // תיקון: יצירת תיקייה בצורה בטוחה ללא פקודות Shell/Bat
+                    // יצירת תיקיית דוחות בצורה בטוחה (Cross-Platform)
                     def reportsDir = "reports"
-                    dir(reportsDir) {
-                        // ג'נקינס יוצר את התיקייה אוטומטית אם היא לא קיימת
-                    }
+                    dir(reportsDir) { }
 
-                    def g1 = null
-                    def g2 = null
                     def errors = []
-
-                    // פונקציה לבדיקת ציון
+                    
+                    // פונקציה לבדיקת תקינות ציונים
                     def validateGrade = { gradeStr, name ->
-                        def gradeNum = null
                         try {
-                            gradeNum = gradeStr.toInteger()
-                            if (gradeNum < 0 || gradeNum > 100) {
-                                errors << "${name} מחוץ לטווח 0-100"
-                                gradeNum = null
+                            def g = gradeStr.toInteger()
+                            if (g < 0 || g > 100) {
+                                errors << "${name} מחוץ לטווח (0-100)"
+                                return null
                             }
+                            return g
                         } catch (e) {
-                            errors << "${name} לא מספר חוקי"
+                            errors << "${name} אינו מספר חוקי"
+                            return null
                         }
-                        return gradeNum
                     }
 
-                    g1 = validateGrade(params.GRADE1, "GRADE1")
-                    g2 = validateGrade(params.GRADE2, "GRADE2")
+                    def g1 = validateGrade(params.GRADE1, "ציון 1")
+                    def g2 = validateGrade(params.GRADE2, "ציון 2")
 
-                    def average = null
-                    def status = "N/A ❌"
+                    def average = (g1 != null && g2 != null) ? (g1 + g2) / 2 : null
+                    def status = (average != null && average >= 50) ? "PASSED" : "FAILED"
 
-                    if (errors.size() == 0) {
-                        average = (g1 + g2) / 2
-                        status = (average >= 50) ? "PASSED ✅" : "FAILED ❌"
-                    }
-
-                    // יצירת דף HTML מעוצב
+                    // יצירת ה-HTML עם העיצוב המודרני
                     def htmlContent = """
-                    <html>
+                    <!DOCTYPE html>
+                    <html dir="rtl" lang="he">
                     <head>
-                        <title>Grade Report</title>
+                        <meta charset="UTF-8">
                         <style>
-                            body { font-family: Arial; background: #f4f4f4; padding: 20px; }
-                            h1 { color: #333; }
-                            table { border-collapse: collapse; width: 50%; }
-                            td, th { border: 1px solid #999; padding: 10px; text-align: center; }
-                            .passed { color: green; font-weight: bold; }
-                            .failed { color: red; font-weight: bold; }
-                            .error { color: orange; font-weight: bold; }
+                            :root {
+                                --primary: #4a90e2;
+                                --success: #2ecc71;
+                                --danger: #e74c3c;
+                                --bg: #f4f7f6;
+                            }
+                            body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); display: flex; justify-content: center; padding-top: 50px; }
+                            .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+                            h1 { text-align: center; color: #333; margin-bottom: 30px; border-bottom: 3px solid var(--primary); padding-bottom: 10px; }
+                            .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+                            .stat-item { background: #f9f9f9; padding: 15px; border-radius: 10px; text-align: center; }
+                            .label { display: block; color: #888; font-size: 0.9em; margin-bottom: 5px; }
+                            .value { font-size: 1.4em; font-weight: bold; color: #333; }
+                            .result-box { text-align: center; padding: 20px; border-radius: 10px; margin-top: 20px; }
+                            .passed { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+                            .failed { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+                            .error-text { color: var(--danger); font-size: 0.9em; text-align: center; }
                         </style>
                     </head>
                     <body>
-                        <h1>Grade Report for ${params.STUDENT_NAME}</h1>
-                        <table>
-                            <tr><th>Grade 1</th><th>Grade 2</th><th>Average</th><th>Status</th></tr>
-                            <tr>
-                                <td>${g1 != null ? g1 : "-"}</td>
-                                <td>${g2 != null ? g2 : "-"}</td>
-                                <td>${average != null ? average : "-"}</td>
-                                <td class="${errors.size() > 0 ? 'error' : (average != null && average >= 50 ? 'passed' : 'failed')}">
-                                    ${errors.size() > 0 ? "ERROR ❌" : status}
-                                </td>
-                            </tr>
-                        </table>
-                        ${errors.size() > 0 ? "<p style='color:red;'>Errors: ${errors.join(', ')}</p>" : ""}
+                        <div class="card">
+                            <h1>דוח ציונים: ${params.STUDENT_NAME}</h1>
+                            <div class="stat-grid">
+                                <div class="stat-item"><span class="label">ציון א'</span><span class="value">${g1 != null ? g1 : '-'}</span></div>
+                                <div class="stat-item"><span class="label">ציון ב'</span><span class="value">${g2 != null ? g2 : '-'}</span></div>
+                            </div>
+                            <div style="text-align:center;">
+                                <span class="label">ממוצע סופי</span>
+                                <div class="value" style="font-size: 3em;">${average != null ? average : '-'}</div>
+                            </div>
+                            
+                            <div class="result-box ${average != null && average >= 50 ? 'passed' : 'failed'}">
+                                <h2 style="margin:0;">${errors ? 'שגיאה בנתונים' : (average >= 50 ? 'עבר ✅' : 'נכשל ❌')}</h2>
+                            </div>
+                            
+                            ${errors ? "<div class='error-text'><p>שגיאות: ${errors.join(', ')}</p></div>" : ""}
+                            
+                            <p style="text-align:center; color:#bbb; font-size:0.8em; margin-top:20px;">הופק על ידי Jenkins | Node: ${env.NODE_NAME}</p>
+                        </div>
                     </body>
                     </html>
                     """
-                    // כתיבה לנתיב יחסי - הכי בטוח בווינדוס ולינוקס
+                    
+                    // כתיבת הקובץ
                     writeFile file: "${reportsDir}/GradeReport.html", text: htmlContent
-
-                    def logContent = """
-                    <html>
-                    <head><title>Build Log</title></head>
-                    <body>
-                    <h1>Build Log</h1>
-                    <pre>
-Student: ${params.STUDENT_NAME}
-Node Used: ${env.NODE_NAME}
-Grade 1: ${g1 != null ? g1 : "-"}
-Grade 2: ${g2 != null ? g2 : "-"}
-Average: ${average != null ? average : "-"}
-Status: ${errors.size() > 0 ? "ERROR ❌" : status}
-Errors: ${errors.join(', ')}
-                    </pre>
-                    </body>
-                    </html>
-                    """
-                    writeFile file: "${reportsDir}/BuildLog.html", text: logContent
-
-                    echo "Grade Report: ${env.BUILD_URL}artifact/${reportsDir}/GradeReport.html"
+                    
+                    echo "The report has been generated successfully."
                 }
             }
         }
@@ -128,6 +118,7 @@ Errors: ${errors.join(', ')}
 
     post {
         always {
+            // שמירת הקובץ כארטיפקט בתוך ג'נקינס
             archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
         }
     }
