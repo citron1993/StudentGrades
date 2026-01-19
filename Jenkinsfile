@@ -21,21 +21,20 @@ pipeline {
         stage('Validate & Calculate') {
             steps {
                 script {
-                    // תיקיית הדוחות
                     def reportsDir = "${env.WORKSPACE}/reports"
 
                     // יצירת התיקייה בצורה cross-platform
                     if (isUnix()) {
                         sh "mkdir -p '${reportsDir}'"
                     } else {
-                        bat "mkdir \"${reportsDir}\""
+                        bat "if not exist \"${reportsDir}\" mkdir \"${reportsDir}\""
                     }
 
-                    // בדיקת ציונים
                     def g1 = null
                     def g2 = null
                     def errors = []
 
+                    // פונקציה לבדיקת ציון
                     def validateGrade = { gradeStr, name ->
                         def gradeNum = null
                         try {
@@ -61,7 +60,7 @@ pipeline {
                         status = (average >= 50) ? "PASSED ✅" : "FAILED ❌"
                     }
 
-                    // דוח HTML
+                    // יצירת דף HTML מעוצב
                     def htmlContent = """
                     <html>
                     <head>
@@ -84,9 +83,7 @@ pipeline {
                                 <td>${g1 != null ? g1 : "-"}</td>
                                 <td>${g2 != null ? g2 : "-"}</td>
                                 <td>${average != null ? average : "-"}</td>
-                                <td class="${errors.size() > 0 ? 'error' : (average>=50?'passed':'failed')}">
-                                    ${errors.size() > 0 ? "ERROR ❌" : status}
-                                </td>
+                                <td class="${errors.size() > 0 ? 'error' : (average>=50?'passed':'failed')}">${errors.size() > 0 ? "ERROR ❌" : status}</td>
                             </tr>
                         </table>
                         ${errors.size() > 0 ? "<p style='color:red;'>Errors: ${errors.join(', ')}</p>" : ""}
@@ -95,19 +92,19 @@ pipeline {
                     """
                     writeFile file: "${reportsDir}/GradeReport.html", text: htmlContent
 
-                    // לוג HTML
+                    // יצירת דף HTML ללוג
                     def logContent = """
                     <html>
                     <head><title>Build Log</title></head>
                     <body>
                     <h1>Build Log</h1>
                     <pre>
-                    Student: ${params.STUDENT_NAME}
-                    Grade 1: ${g1 != null ? g1 : "-"}
-                    Grade 2: ${g2 != null ? g2 : "-"}
-                    Average: ${average != null ? average : "-"}
-                    Status: ${errors.size() > 0 ? "ERROR ❌" : status}
-                    Errors: ${errors.join(', ')}
+Student: ${params.STUDENT_NAME}
+Grade 1: ${g1 != null ? g1 : "-"}
+Grade 2: ${g2 != null ? g2 : "-"}
+Average: ${average != null ? average : "-"}
+Status: ${errors.size() > 0 ? "ERROR ❌" : status}
+Errors: ${errors.join(', ')}
                     </pre>
                     </body>
                     </html>
