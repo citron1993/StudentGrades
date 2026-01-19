@@ -24,15 +24,11 @@ pipeline {
                     // תיקיית הדוחות
                     def reportsDir = "${env.WORKSPACE}/reports"
 
-                    // יצירת התיקייה אם לא קיימת, בהתאם ל-OS
+                    // יצירת התיקייה בצורה cross-platform
                     if (isUnix()) {
                         sh "mkdir -p '${reportsDir}'"
                     } else {
-                        bat """
-                        if not exist "${reportsDir}" (
-                            mkdir "${reportsDir}"
-                        )
-                        """
+                        bat "mkdir \"${reportsDir}\""
                     }
 
                     // בדיקת ציונים
@@ -65,7 +61,7 @@ pipeline {
                         status = (average >= 50) ? "PASSED ✅" : "FAILED ❌"
                     }
 
-                    // דוח HTML מעוצב
+                    // דוח HTML
                     def htmlContent = """
                     <html>
                     <head>
