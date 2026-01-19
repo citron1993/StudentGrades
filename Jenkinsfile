@@ -1,5 +1,6 @@
 pipeline {
     agent any
+    
     parameters {
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
         string(name: 'GRADE1', defaultValue: '0', description: 'First Grade')
@@ -21,13 +22,12 @@ pipeline {
         stage('Validate & Calculate') {
             steps {
                 script {
-                    def reportsDir = "${env.WORKSPACE}/reports"
+                    // הגדרת שם התיקייה
+                    def reportsDir = "reports"
 
-                    // יצירת התיקייה בצורה cross-platform
-                    if (isUnix()) {
-                        sh "mkdir -p '${reportsDir}'"
-                    } else {
-                        bat "if not exist \"${reportsDir}\" mkdir \"${reportsDir}\""
+                    // יצירת התיקייה בצורה cross-platform בעזרת dir
+                    dir(reportsDir) {
+                        // הבלוק הזה מבטיח שהתיקייה קיימת
                     }
 
                     def g1 = null
@@ -83,16 +83,19 @@ pipeline {
                                 <td>${g1 != null ? g1 : "-"}</td>
                                 <td>${g2 != null ? g2 : "-"}</td>
                                 <td>${average != null ? average : "-"}</td>
-                                <td class="${errors.size() > 0 ? 'error' : (average>=50?'passed':'failed')}">${errors.size() > 0 ? "ERROR ❌" : status}</td>
+                                <td class="${errors.size() > 0 ? 'error' : (average != null && average >= 50 ? 'passed' : 'failed')}">
+                                    ${errors.size() > 0 ? "ERROR ❌" : status}
+                                </td>
                             </tr>
                         </table>
                         ${errors.size() > 0 ? "<p style='color:red;'>Errors: ${errors.join(', ')}</p>" : ""}
                     </body>
                     </html>
                     """
+                    
+                    // כתיבת הקבצים לנתיב היחסי
                     writeFile file: "${reportsDir}/GradeReport.html", text: htmlContent
 
-                    // יצירת דף HTML ללוג
                     def logContent = """
                     <html>
                     <head><title>Build Log</title></head>
@@ -111,8 +114,8 @@ Errors: ${errors.join(', ')}
                     """
                     writeFile file: "${reportsDir}/BuildLog.html", text: logContent
 
-                    echo "Grade Report: ${env.BUILD_URL}artifact/reports/GradeReport.html"
-                    echo "Build Log: ${env.BUILD_URL}artifact/reports/BuildLog.html"
+                    echo "Grade Report: ${env.BUILD_URL}artifact/${reportsDir}/GradeReport.html"
+                    echo "Build Log: ${env.BUILD_URL}artifact/${reportsDir}/BuildLog.html"
                 }
             }
         }
@@ -120,6 +123,7 @@ Errors: ${errors.join(', ')}
 
     post {
         always {
+            // ארכוב הקבצים מהתיקייה
             archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
         }
     }
