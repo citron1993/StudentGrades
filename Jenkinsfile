@@ -22,7 +22,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // מוריד את הקוד מה-Git
                 checkout scm
             }
         }
@@ -30,13 +29,12 @@ pipeline {
         stage('Validate & Calculate') {
             steps {
                 script {
-                    // יצירת תיקיית דוחות בצורה בטוחה (Cross-Platform)
+                    // יצירת תיקיית דוחות בצורה בטוחה
                     def reportsDir = "reports"
                     dir(reportsDir) { }
 
                     def errors = []
                     
-                    // פונקציה לבדיקת תקינות ציונים
                     def validateGrade = { gradeStr, name ->
                         try {
                             def g = gradeStr.toInteger()
@@ -55,9 +53,8 @@ pipeline {
                     def g2 = validateGrade(params.GRADE2, "ציון 2")
 
                     def average = (g1 != null && g2 != null) ? (g1 + g2) / 2 : null
-                    def status = (average != null && average >= 50) ? "PASSED" : "FAILED"
-
-                    // יצירת ה-HTML עם העיצוב המודרני
+                    
+                    // עיצוב ה-HTML החדש
                     def htmlContent = """
                     <!DOCTYPE html>
                     <html dir="rtl" lang="he">
@@ -68,49 +65,103 @@ pipeline {
                                 --primary: #4a90e2;
                                 --success: #2ecc71;
                                 --danger: #e74c3c;
-                                --bg: #f4f7f6;
+                                --text: #2c3e50;
+                                --bg: #f8f9fa;
                             }
-                            body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); display: flex; justify-content: center; padding-top: 50px; }
-                            .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
-                            h1 { text-align: center; color: #333; margin-bottom: 30px; border-bottom: 3px solid var(--primary); padding-bottom: 10px; }
-                            .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-                            .stat-item { background: #f9f9f9; padding: 15px; border-radius: 10px; text-align: center; }
-                            .label { display: block; color: #888; font-size: 0.9em; margin-bottom: 5px; }
-                            .value { font-size: 1.4em; font-weight: bold; color: #333; }
-                            .result-box { text-align: center; padding: 20px; border-radius: 10px; margin-top: 20px; }
-                            .passed { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-                            .failed { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-                            .error-text { color: var(--danger); font-size: 0.9em; text-align: center; }
+                            body { 
+                                font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+                                background-color: var(--bg); 
+                                display: flex; 
+                                justify-content: center; 
+                                align-items: center; 
+                                min-height: 100vh; 
+                                margin: 0; 
+                            }
+                            .card { 
+                                background: white; 
+                                border-radius: 20px; 
+                                box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
+                                width: 90%; 
+                                max-width: 450px; 
+                                padding: 40px; 
+                                text-align: center; 
+                            }
+                            h1 { color: var(--text); font-size: 24px; margin-bottom: 30px; }
+                            .student-name { color: var(--primary); font-weight: bold; }
+                            
+                            .stats-container { 
+                                display: flex; 
+                                justify-content: space-around; 
+                                margin-bottom: 30px; 
+                                background: #fdfdfd; 
+                                border-radius: 15px; 
+                                padding: 20px; 
+                                border: 1px solid #eee;
+                            }
+                            .stat-box { display: flex; flex-direction: column; }
+                            .stat-label { font-size: 14px; color: #7f8c8d; margin-bottom: 5px; }
+                            .stat-value { font-size: 20px; font-weight: bold; color: var(--text); }
+                            
+                            .average-display { margin-bottom: 30px; }
+                            .avg-label { font-size: 16px; color: #7f8c8d; }
+                            .avg-value { font-size: 64px; font-weight: 800; color: var(--text); line-height: 1; }
+                            
+                            .status-badge { 
+                                display: inline-block; 
+                                padding: 12px 30px; 
+                                border-radius: 50px; 
+                                font-weight: bold; 
+                                font-size: 18px; 
+                                text-transform: uppercase; 
+                            }
+                            .passed { background-color: #d4edda; color: var(--success); }
+                            .failed { background-color: #f8d7da; color: var(--danger); }
+                            
+                            .errors { color: var(--danger); margin-top: 20px; font-size: 14px; border-top: 1px dashed #ddd; padding-top: 10px; }
+                            .footer { margin-top: 30px; font-size: 12px; color: #bdc3c7; }
                         </style>
                     </head>
                     <body>
                         <div class="card">
-                            <h1>דוח ציונים: ${params.STUDENT_NAME}</h1>
-                            <div class="stat-grid">
-                                <div class="stat-item"><span class="label">ציון א'</span><span class="value">${g1 != null ? g1 : '-'}</span></div>
-                                <div class="stat-item"><span class="label">ציון ב'</span><span class="value">${g2 != null ? g2 : '-'}</span></div>
-                            </div>
-                            <div style="text-align:center;">
-                                <span class="label">ממוצע סופי</span>
-                                <div class="value" style="font-size: 3em;">${average != null ? average : '-'}</div>
-                            </div>
+                            <h1>דוח ציונים עבור <span class="student-name">${params.STUDENT_NAME}</span></h1>
                             
-                            <div class="result-box ${average != null && average >= 50 ? 'passed' : 'failed'}">
-                                <h2 style="margin:0;">${errors ? 'שגיאה בנתונים' : (average >= 50 ? 'עבר ✅' : 'נכשל ❌')}</h2>
+                            <div class="stats-container">
+                                <div class="stat-box">
+                                    <span class="stat-label">ציון א'</span>
+                                    <span class="stat-value">${g1 != null ? g1 : '-'}</span>
+                                </div>
+                                <div class="stat-box">
+                                    <span class="stat-label">ציון ב'</span>
+                                    <span class="stat-value">${g2 != null ? g2 : '-'}</span>
+                                </div>
                             </div>
-                            
-                            ${errors ? "<div class='error-text'><p>שגיאות: ${errors.join(', ')}</p></div>" : ""}
-                            
-                            <p style="text-align:center; color:#bbb; font-size:0.8em; margin-top:20px;">הופק על ידי Jenkins | Node: ${env.NODE_NAME}</p>
+
+                            <div class="average-display">
+                                <span class="avg-label">ממוצע סופי</span>
+                                <div class="avg-value">${average != null ? average : '-'}</div>
+                            </div>
+
+                            ${errors ? """
+                                <div class="errors">
+                                    <strong>שגיאות שנמצאו:</strong><br>
+                                    ${errors.join('<br>')}
+                                </div>
+                            """ : """
+                                <div class="status-badge ${average >= 50 ? 'passed' : 'failed'}">
+                                    ${average >= 50 ? 'עבר ✅' : 'נכשל ❌'}
+                                </div>
+                            """}
+
+                            <div class="footer">
+                                הופק על ידי Jenkins Pipeline<br>
+                                שרת מבצע: ${env.NODE_NAME}
+                            </div>
                         </div>
                     </body>
                     </html>
                     """
                     
-                    // כתיבת הקובץ
                     writeFile file: "${reportsDir}/GradeReport.html", text: htmlContent
-                    
-                    echo "The report has been generated successfully."
                 }
             }
         }
@@ -118,7 +169,6 @@ pipeline {
 
     post {
         always {
-            // שמירת הקובץ כארטיפקט בתוך ג'נקינס
             archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
         }
     }
