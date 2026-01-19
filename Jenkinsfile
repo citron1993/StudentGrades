@@ -3,22 +3,46 @@ pipeline {
 
     parameters {
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student name')
-        string(name: 'GRADE1', defaultValue: '50', description: 'First grade')
-        string(name: 'GRADE2', defaultValue: '40', description: 'Second grade')
+        string(name: 'GRADE1', defaultValue: '50', description: 'First grade (0-100)')
+        string(name: 'GRADE2', defaultValue: '40', description: 'Second grade (0-100)')
     }
 
     stages {
-        stage('Calculate & Generate Report') {
+        stage('Validate, Calculate & Report') {
             steps {
                 script {
-                    int g1 = params.GRADE1.toInteger()
-                    int g2 = params.GRADE2.toInteger()
-                    int avg = (g1 + g2) / 2
 
-                    currentBuild.result = (avg >= 60) ? 'SUCCESS' : 'FAILURE'
+                    def errorMessage = ""
+                    def statusText = ""
+                    def statusColor = "#3498db"
+                    def avgText = "-"
 
-                    def status = avg >= 60 ? "PASSED ✅" : "FAILED ❌"
-                    def color  = avg >= 60 ? "#2ecc71" : "#e74c3c"
+                    try {
+                        int g1 = params.GRADE1.toInteger()
+                        int g2 = params.GRADE2.toInteger()
+
+                        if (g1 < 0 || g1 > 100 || g2 < 0 || g2 > 100) {
+                            errorMessage = "❗ Grades must be between 0 and 100"
+                            currentBuild.result = 'UNSTABLE'
+                        } else {
+                            int avg = (g1 + g2) / 2
+                            avgText = avg.toString()
+
+                            if (avg >= 60) {
+                                statusText = "PASSED ✅"
+                                statusColor = "#2ecc71"
+                                currentBuild.result = 'SUCCESS'
+                            } else {
+                                statusText = "FAILED ❌"
+                                statusColor = "#e74c3c"
+                                currentBuild.result = 'UNSTABLE'
+                            }
+                        }
+
+                    } catch (Exception e) {
+                        errorMessage = "❗ Invalid input – grades must be numbers"
+                        currentBuild.result = 'UNSTABLE'
+                    }
 
                     writeFile file: 'report.html', text: """
 <html>
@@ -29,7 +53,7 @@ body {
  font-family:Arial;
 }
 .card {
- width:420px;
+ width:450px;
  margin:50px auto;
  background:white;
  padding:25px;
@@ -37,7 +61,7 @@ body {
  box-shadow:0 6px 14px rgba(0,0,0,0.15);
 }
 .status {
- background:${color};
+ background:${statusColor};
  color:white;
  padding:12px;
  text-align:center;
@@ -45,16 +69,27 @@ body {
  font-size:22px;
  margin-top:15px;
 }
+.error {
+ background:#f39c12;
+ color:white;
+ padding:12px;
+ border-radius:8px;
+ margin-top:15px;
+}
 </style>
 </head>
 <body>
 <div class="card">
 <h2>📘 Student Grades Report</h2>
+
 <p><b>Name:</b> ${params.STUDENT_NAME}</p>
-<p><b>Grade 1:</b> ${g1}</p>
-<p><b>Grade 2:</b> ${g2}</p>
-<p><b>Average:</b> ${avg}</p>
-<div class="status">${status}</div>
+<p><b>Grade 1:</b> ${params.GRADE1}</p>
+<p><b>Grade 2:</b> ${params.GRADE2}</p>
+<p><b>Average:</b> ${avgText}</p>
+
+${statusText ? "<div class='status'>${statusText}</div>" : ""}
+${errorMessage ? "<div class='error'>${errorMessage}</div>" : ""}
+
 </div>
 </body>
 </html>
