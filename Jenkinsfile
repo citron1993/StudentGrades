@@ -1,6 +1,15 @@
 pipeline {
-    agent any
+    // בחירה דינמית של ה-Node לפי הפרמטר
+    agent {
+        label "${params.OPERATING_SYSTEM ?: 'built-in'}"
+    }
+
     parameters {
+        // בחירת ה-Node להרצה
+        choice(name: 'OPERATING_SYSTEM', 
+               choices: ['linux-node', 'built-in'], 
+               description: 'בחר על איזה Node להריץ את הבנייה')
+               
         string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student Name')
         string(name: 'GRADE1', defaultValue: '0', description: 'First Grade')
         string(name: 'GRADE2', defaultValue: '0', description: 'Second Grade')
@@ -21,13 +30,10 @@ pipeline {
         stage('Validate & Calculate') {
             steps {
                 script {
-                    def reportsDir = "${env.WORKSPACE}/reports"
-
-                    // יצירת התיקייה בצורה cross-platform
-                    if (isUnix()) {
-                        sh "mkdir -p '${reportsDir}'"
-                    } else {
-                        bat "if not exist \"${reportsDir}\" mkdir \"${reportsDir}\""
+                    // תיקון: יצירת תיקייה בצורה בטוחה ללא פקודות Shell/Bat
+                    def reportsDir = "reports"
+                    dir(reportsDir) {
+                        // ג'נקינס יוצר את התיקייה אוטומטית אם היא לא קיימת
                     }
 
                     def g1 = null
@@ -83,16 +89,18 @@ pipeline {
                                 <td>${g1 != null ? g1 : "-"}</td>
                                 <td>${g2 != null ? g2 : "-"}</td>
                                 <td>${average != null ? average : "-"}</td>
-                                <td class="${errors.size() > 0 ? 'error' : (average>=50?'passed':'failed')}">${errors.size() > 0 ? "ERROR ❌" : status}</td>
+                                <td class="${errors.size() > 0 ? 'error' : (average != null && average >= 50 ? 'passed' : 'failed')}">
+                                    ${errors.size() > 0 ? "ERROR ❌" : status}
+                                </td>
                             </tr>
                         </table>
                         ${errors.size() > 0 ? "<p style='color:red;'>Errors: ${errors.join(', ')}</p>" : ""}
                     </body>
                     </html>
                     """
+                    // כתיבה לנתיב יחסי - הכי בטוח בווינדוס ולינוקס
                     writeFile file: "${reportsDir}/GradeReport.html", text: htmlContent
 
-                    // יצירת דף HTML ללוג
                     def logContent = """
                     <html>
                     <head><title>Build Log</title></head>
@@ -100,6 +108,7 @@ pipeline {
                     <h1>Build Log</h1>
                     <pre>
 Student: ${params.STUDENT_NAME}
+Node Used: ${env.NODE_NAME}
 Grade 1: ${g1 != null ? g1 : "-"}
 Grade 2: ${g2 != null ? g2 : "-"}
 Average: ${average != null ? average : "-"}
@@ -111,8 +120,7 @@ Errors: ${errors.join(', ')}
                     """
                     writeFile file: "${reportsDir}/BuildLog.html", text: logContent
 
-                    echo "Grade Report: ${env.BUILD_URL}artifact/reports/GradeReport.html"
-                    echo "Build Log: ${env.BUILD_URL}artifact/reports/BuildLog.html"
+                    echo "Grade Report: ${env.BUILD_URL}artifact/${reportsDir}/GradeReport.html"
                 }
             }
         }
