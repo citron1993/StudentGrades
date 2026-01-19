@@ -7,7 +7,6 @@ pipeline {
     }
 
     options {
-        // תמיד נסיים עם SUCCESS גם אם יש שגיאות
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
@@ -24,7 +23,12 @@ pipeline {
                 script {
                     // יצירת תיקיות לדוחות
                     def reportsDir = "${env.WORKSPACE}/reports"
-                    sh "mkdir -p ${reportsDir}"
+
+                    if (isUnix()) {
+                        sh "mkdir -p ${reportsDir}"
+                    } else {
+                        bat "mkdir \"${reportsDir}\""
+                    }
 
                     // בדיקה אם הקלט תקין
                     def g1 = 0
@@ -96,7 +100,6 @@ pipeline {
 
     post {
         always {
-            // ארכוב הדוחות והלוגים כדי שיופיעו ב־Jenkins
             archiveArtifacts artifacts: 'reports/*.html', allowEmptyArchive: true
         }
     }
