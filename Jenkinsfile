@@ -1,63 +1,78 @@
-Started by user itay citron
-Obtained Jenkinsfile from git https://github.com/citron1993/StudentGrades.git
-[Pipeline] Start of Pipeline
-[Pipeline] node
-Running on Jenkins in C:\ProgramData\Jenkins\.jenkins\workspace\Grades-Pipeline-Git
-[Pipeline] {
-[Pipeline] stage
-[Pipeline] { (Declarative: Checkout SCM)
-[Pipeline] checkout
-Selected Git installation does not exist. Using Default
-The recommended git tool is: NONE
-No credentials specified
- > git.exe rev-parse --resolve-git-dir C:\ProgramData\Jenkins\.jenkins\workspace\Grades-Pipeline-Git\.git # timeout=10
-Fetching changes from the remote Git repository
- > git.exe config remote.origin.url https://github.com/citron1993/StudentGrades.git # timeout=10
-Fetching upstream changes from https://github.com/citron1993/StudentGrades.git
- > git.exe --version # timeout=10
- > git --version # 'git version 2.49.0.windows.1'
- > git.exe fetch --tags --force --progress -- https://github.com/citron1993/StudentGrades.git +refs/heads/*:refs/remotes/origin/* # timeout=10
- > git.exe rev-parse "refs/remotes/origin/main^{commit}" # timeout=10
-Checking out Revision 1c2dd06fbb142ee0da32e048b703f226bb378ec2 (refs/remotes/origin/main)
- > git.exe config core.sparsecheckout # timeout=10
- > git.exe checkout -f 1c2dd06fbb142ee0da32e048b703f226bb378ec2 # timeout=10
-Commit message: "Jenkinsfile"
- > git.exe rev-list --no-walk 1c2dd06fbb142ee0da32e048b703f226bb378ec2 # timeout=10
-[Pipeline] }
-[Pipeline] // stage
-[Pipeline] withEnv
-[Pipeline] {
-[Pipeline] stage
-[Pipeline] { (Show Inputs)
-[Pipeline] echo
-Student: David
-[Pipeline] echo
-Grade 1: 50
-[Pipeline] echo
-Grade 2: 40
-[Pipeline] }
-[Pipeline] // stage
-[Pipeline] stage
-[Pipeline] { (Calculate Average)
-[Pipeline] script
-[Pipeline] {
-[Pipeline] echo
-Average grade: 45
-[Pipeline] error
-[Pipeline] }
-[Pipeline] // script
-[Pipeline] }
-[Pipeline] // stage
-[Pipeline] stage
-[Pipeline] { (Declarative: Post Actions)
-[Pipeline] echo
-Pipeline finished
-[Pipeline] }
-[Pipeline] // stage
-[Pipeline] }
-[Pipeline] // withEnv
-[Pipeline] }
-[Pipeline] // node
-[Pipeline] End of Pipeline
-ERROR: ❌ FAILED
-Finished: FAILURE
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'STUDENT_NAME', defaultValue: 'David', description: 'Student name')
+        string(name: 'GRADE1', defaultValue: '50', description: 'First grade')
+        string(name: 'GRADE2', defaultValue: '40', description: 'Second grade')
+    }
+
+    stages {
+        stage('Calculate & Generate Report') {
+            steps {
+                script {
+                    int g1 = params.GRADE1.toInteger()
+                    int g2 = params.GRADE2.toInteger()
+                    int avg = (g1 + g2) / 2
+
+                    currentBuild.result = (avg >= 60) ? 'SUCCESS' : 'FAILURE'
+
+                    def status = avg >= 60 ? "PASSED ✅" : "FAILED ❌"
+                    def color  = avg >= 60 ? "#2ecc71" : "#e74c3c"
+
+                    writeFile file: 'report.html', text: """
+<html>
+<head>
+<style>
+body {
+ background:#f4f6f8;
+ font-family:Arial;
+}
+.card {
+ width:420px;
+ margin:50px auto;
+ background:white;
+ padding:25px;
+ border-radius:14px;
+ box-shadow:0 6px 14px rgba(0,0,0,0.15);
+}
+.status {
+ background:${color};
+ color:white;
+ padding:12px;
+ text-align:center;
+ border-radius:8px;
+ font-size:22px;
+ margin-top:15px;
+}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>📘 Student Grades Report</h2>
+<p><b>Name:</b> ${params.STUDENT_NAME}</p>
+<p><b>Grade 1:</b> ${g1}</p>
+<p><b>Grade 2:</b> ${g2}</p>
+<p><b>Average:</b> ${avg}</p>
+<div class="status">${status}</div>
+</div>
+</body>
+</html>
+"""
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            publishHTML(target: [
+                reportDir: '.',
+                reportFiles: 'report.html',
+                reportName: 'Student Grades Report',
+                keepAll: true,
+                alwaysLinkToLastBuild: true
+            ])
+        }
+    }
+}
